@@ -17,11 +17,13 @@
 package org.apache.activemq.artemis.core.journal.impl;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import org.apache.activemq.artemis.api.core.ActiveMQExceptionType;
@@ -45,11 +47,13 @@ public class JournalTransaction {
 
    private boolean compacting = false;
 
-   private Map<JournalFile, TransactionCallback> callbackList;
+   private final Map<JournalFile, TransactionCallback> callbackList = Collections.synchronizedMap(new HashMap<JournalFile, TransactionCallback>());
 
    private JournalFile lastFile = null;
 
    private final AtomicInteger counter = new AtomicInteger();
+
+   private CountDownLatch firstCallbackLatch;
 
    public JournalTransaction(final long id, final JournalRecordProvider journal) {
       this.id = id;
@@ -140,9 +144,7 @@ public class JournalTransaction {
          pendingFiles.clear();
       }
 
-      if (callbackList != null) {
-         callbackList.clear();
-      }
+      callbackList.clear();
 
       if (pos != null) {
          pos.clear();
@@ -157,6 +159,8 @@ public class JournalTransaction {
       lastFile = null;
 
       currentCallback = null;
+
+      firstCallbackLatch = null;
    }
 
    /**
@@ -167,9 +171,13 @@ public class JournalTransaction {
       data.setNumberOfRecords(getCounter(currentFile));
    }
 
+   public TransactionCallback getCurrentCallback() {
+      return currentCallback;
+   }
+
    public TransactionCallback getCallback(final JournalFile file) throws Exception {
-      if (callbackList == null) {
-         callbackList = new HashMap<JournalFile, TransactionCallback>();
+      if (firstCallbackLatch != null && callbackList.isEmpty()) {
+         firstCallbackLatch.countDown();
       }
 
       currentCallback = callbackList.get(file);
@@ -179,13 +187,17 @@ public class JournalTransaction {
          callbackList.put(file, currentCallback);
       }
 
-      if (currentCallback.getErrorMessage() != null) {
-         throw ActiveMQExceptionType.createException(currentCallback.getErrorCode(), currentCallback.getErrorMessage());
-      }
-
       currentCallback.countUp();
 
       return currentCallback;
+   }
+
+   public void checkErrorCondition() throws Exception {
+      if (currentCallback != null) {
+         if (currentCallback.getErrorMessage() != null) {
+            throw ActiveMQExceptionType.createException(currentCallback.getErrorCode(), currentCallback.getErrorMessage());
+         }
+      }
    }
 
    public void addPositive(final JournalFile file, final long id, final int size) {
@@ -269,7 +281,8 @@ public class JournalTransaction {
    }
 
    public void waitCallbacks() throws InterruptedException {
-      if (callbackList != null) {
+      waitFirstCallback();
+      synchronized (callbackList) {
          for (TransactionCallback callback : callbackList.values()) {
             callback.waitCompletion();
          }
@@ -280,8 +293,15 @@ public class JournalTransaction {
     * Wait completion at the latest file only
     */
    public void waitCompletion() throws Exception {
-      if (currentCallback != null) {
-         currentCallback.waitCompletion();
+      waitFirstCallback();
+      currentCallback.waitCompletion();
+   }
+
+   private void waitFirstCallback() throws InterruptedException {
+      if (currentCallback == null) {
+         firstCallbackLatch = new CountDownLatch(1);
+         firstCallbackLatch.await();
+         firstCallbackLatch = null;
       }
    }
 
