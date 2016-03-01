@@ -701,32 +701,36 @@ public class JournalImpl extends JournalBase implements TestableJournal, Journal
                                final boolean sync,
                                final IOCompletion callback) throws Exception {
       checkJournalIsLoaded();
+      final JournalInternalRecord addRecord = new JournalAddRecord(true, id, recordType, record);
       lineUpContext(callback);
       pendingRecords.add(id);
 
       Future<?> result = appendExecutor.submit(new Runnable() {
          @Override
          public void run() {
+            JournalFile usedFile = null;
+            Exception fault = null;
             journalLock.readLock().lock();
             try {
-               JournalInternalRecord addRecord = new JournalAddRecord(true, id, recordType, record);
-               JournalFile usedFile = appendRecord(addRecord, false, sync, null, callback);
+               usedFile = appendRecord(addRecord, false, sync, null, callback);
                records.put(id, new JournalRecord(usedFile, addRecord.getEncodeSize()));
-
-               if (JournalImpl.TRACE_RECORDS) {
-                  JournalImpl.traceRecord("appendAddRecord::id=" + id +
-                          ", userRecordType=" +
-                          recordType +
-                          ", usedFile = " +
-                          usedFile);
-               }
             }
             catch (Exception e) {
-               ActiveMQJournalLogger.LOGGER.error(e.getMessage(), e);
+               fault = e;
             }
             finally {
                pendingRecords.remove(id);
                journalLock.readLock().unlock();
+            }
+            if (fault != null) {
+               ActiveMQJournalLogger.LOGGER.error(fault.getMessage(), fault);
+            }
+            if (JournalImpl.TRACE_RECORDS) {
+               JournalImpl.traceRecord("appendAddRecord::id=" + id +
+                       ", userRecordType=" +
+                       recordType +
+                       ", usedFile = " +
+                       usedFile);
             }
          }
       });
@@ -745,23 +749,17 @@ public class JournalImpl extends JournalBase implements TestableJournal, Journal
       checkJournalIsLoaded();
       lineUpContext(callback);
       checkKnownRecordID(id);
+      final JournalInternalRecord updateRecord = new JournalAddRecord(false, id, recordType, record);
 
       Future<?> result = appendExecutor.submit(new Runnable() {
          @Override
          public void run() {
+            JournalFile usedFile = null;
+            Exception fault = null;
             journalLock.readLock().lock();
             try {
                JournalRecord jrnRecord = records.get(id);
-               JournalInternalRecord updateRecord = new JournalAddRecord(false, id, recordType, record);
-               JournalFile usedFile = appendRecord(updateRecord, false, sync, null, callback);
-
-               if (JournalImpl.TRACE_RECORDS) {
-                  JournalImpl.traceRecord("appendUpdateRecord::id=" + id +
-                          ", userRecordType=" +
-                          recordType +
-                          ", usedFile = " +
-                          usedFile);
-               }
+               usedFile = appendRecord(updateRecord, false, sync, null, callback);
 
                // record==null here could only mean there is a compactor
                // computing the delete should be done after compacting is done
@@ -773,10 +771,20 @@ public class JournalImpl extends JournalBase implements TestableJournal, Journal
                }
             }
             catch (Exception e) {
-               ActiveMQJournalLogger.LOGGER.error(e.getMessage(), e);
+               fault = e;
             }
             finally {
                journalLock.readLock().unlock();
+            }
+            if (fault != null) {
+               ActiveMQJournalLogger.LOGGER.error(fault.getMessage(), fault);
+            }
+            if (JournalImpl.TRACE_RECORDS) {
+               JournalImpl.traceRecord("appendUpdateRecord::id=" + id +
+                       ", userRecordType=" +
+                       recordType +
+                       ", usedFile = " +
+                       usedFile);
             }
          }
       });
@@ -791,10 +799,13 @@ public class JournalImpl extends JournalBase implements TestableJournal, Journal
       checkJournalIsLoaded();
       lineUpContext(callback);
       checkKnownRecordID(id);
+      final JournalInternalRecord deleteRecord = new JournalDeleteRecord(id);
 
       Future<?> result = appendExecutor.submit(new Runnable() {
          @Override
          public void run() {
+            JournalFile usedFile = null;
+            Exception fault = null;
             journalLock.readLock().lock();
             try {
                JournalRecord record = null;
@@ -802,12 +813,7 @@ public class JournalImpl extends JournalBase implements TestableJournal, Journal
                   record = records.remove(id);
                }
 
-               JournalInternalRecord deleteRecord = new JournalDeleteRecord(id);
-               JournalFile usedFile = appendRecord(deleteRecord, false, sync, null, callback);
-
-               if (JournalImpl.TRACE_RECORDS) {
-                  JournalImpl.traceRecord("appendDeleteRecord::id=" + id + ", usedFile = " + usedFile);
-               }
+               usedFile = appendRecord(deleteRecord, false, sync, null, callback);
 
                // record==null here could only mean there is a compactor
                // computing the delete should be done after compacting is done
@@ -819,11 +825,18 @@ public class JournalImpl extends JournalBase implements TestableJournal, Journal
                }
             }
             catch (Exception e) {
-               ActiveMQJournalLogger.LOGGER.error(e.getMessage(), e);
+               fault = e;
             }
             finally {
                journalLock.readLock().unlock();
             }
+            if (fault != null) {
+               ActiveMQJournalLogger.LOGGER.error(fault.getMessage(), fault);
+            }
+            if (JournalImpl.TRACE_RECORDS) {
+               JournalImpl.traceRecord("appendDeleteRecord::id=" + id + ", usedFile = " + usedFile);
+            }
+
          }
       });
 
@@ -840,35 +853,39 @@ public class JournalImpl extends JournalBase implements TestableJournal, Journal
       checkJournalIsLoaded();
 
       final JournalTransaction tx = getTransactionInfo(txID);
+      final JournalInternalRecord addRecord = new JournalAddRecordTX(true, txID, id, recordType, record);
       tx.checkErrorCondition();
 
       appendExecutor.submit(new Runnable() {
 
          @Override
          public void run() {
+            JournalFile usedFile = null;
+            Exception fault = null;
             journalLock.readLock().lock();
             try {
-               JournalInternalRecord addRecord = new JournalAddRecordTX(true, txID, id, recordType, record);
-               JournalFile usedFile = appendRecord(addRecord, false, false, tx, null);
-
-               if (JournalImpl.TRACE_RECORDS) {
-                  JournalImpl.traceRecord("appendAddRecordTransactional:txID=" + txID +
-                                             ",id=" +
-                                             id +
-                                             ", userRecordType=" +
-                                             recordType +
-                                             ", usedFile = " +
-                                             usedFile);
-               }
+               usedFile = appendRecord(addRecord, false, false, tx, null);
 
                tx.addPositive(usedFile, id, addRecord.getEncodeSize());
             }
             catch (Exception e) {
-               ActiveMQJournalLogger.LOGGER.error(e.getMessage(), e);
+               fault = e;
                setErrorCondition(tx, e);
             }
             finally {
                journalLock.readLock().unlock();
+            }
+            if (fault != null) {
+               ActiveMQJournalLogger.LOGGER.error(fault.getMessage(), fault);
+            }
+            if (JournalImpl.TRACE_RECORDS) {
+               JournalImpl.traceRecord("appendAddRecordTransactional:txID=" + txID +
+                                          ",id=" +
+                                          id +
+                                          ", userRecordType=" +
+                                          recordType +
+                                          ", usedFile = " +
+                                          usedFile);
             }
          }
       });
@@ -918,36 +935,39 @@ public class JournalImpl extends JournalBase implements TestableJournal, Journal
       checkJournalIsLoaded();
 
       final JournalTransaction tx = getTransactionInfo(txID);
+      final JournalInternalRecord updateRecordTX = new JournalAddRecordTX(false, txID, id, recordType, record);
       tx.checkErrorCondition();
 
       appendExecutor.submit(new Runnable() {
 
          @Override
          public void run() {
+            JournalFile usedFile = null;
+            Exception fault = null;
             journalLock.readLock().lock();
             try {
-
-               JournalInternalRecord updateRecordTX = new JournalAddRecordTX(false, txID, id, recordType, record);
-               JournalFile usedFile = appendRecord(updateRecordTX, false, false, tx, null);
-
-               if (JournalImpl.TRACE_RECORDS) {
-                  JournalImpl.traceRecord("appendUpdateRecordTransactional::txID=" + txID +
-                          ",id=" +
-                          id +
-                          ", userRecordType=" +
-                          recordType +
-                          ", usedFile = " +
-                          usedFile);
-               }
+               usedFile = appendRecord(updateRecordTX, false, false, tx, null);
 
                tx.addPositive(usedFile, id, updateRecordTX.getEncodeSize());
             }
             catch (Exception e) {
-               ActiveMQJournalLogger.LOGGER.error(e.getMessage(), e);
+               fault = e;
                setErrorCondition(tx, e);
             }
             finally {
                journalLock.readLock().unlock();
+            }
+            if (fault != null) {
+               ActiveMQJournalLogger.LOGGER.error(fault.getMessage(), fault);
+            }
+            if (JournalImpl.TRACE_RECORDS) {
+               JournalImpl.traceRecord("appendUpdateRecordTransactional::txID=" + txID +
+                       ",id=" +
+                       id +
+                       ", userRecordType=" +
+                       recordType +
+                       ", usedFile = " +
+                       usedFile);
             }
          }
       });
@@ -960,33 +980,37 @@ public class JournalImpl extends JournalBase implements TestableJournal, Journal
       checkJournalIsLoaded();
 
       final JournalTransaction tx = getTransactionInfo(txID);
+      final JournalInternalRecord deleteRecordTX = new JournalDeleteRecordTX(txID, id, record);
       tx.checkErrorCondition();
 
       appendExecutor.submit(new Runnable() {
          @Override
          public void run() {
+            JournalFile usedFile = null;
+            Exception fault = null;
             journalLock.readLock().lock();
             try {
 
-               JournalInternalRecord deleteRecordTX = new JournalDeleteRecordTX(txID, id, record);
-               JournalFile usedFile = appendRecord(deleteRecordTX, false, false, tx, null);
-
-               if (JournalImpl.TRACE_RECORDS) {
-                  JournalImpl.traceRecord("appendDeleteRecordTransactional::txID=" + txID +
-                          ", id=" +
-                          id +
-                          ", usedFile = " +
-                          usedFile);
-               }
+               usedFile = appendRecord(deleteRecordTX, false, false, tx, null);
 
                tx.addNegative(usedFile, id);
             }
             catch (Exception e) {
-               ActiveMQJournalLogger.LOGGER.error(e.getMessage(), e);
+               fault = e;
                setErrorCondition(tx, e);
             }
             finally {
                journalLock.readLock().unlock();
+            }
+            if (fault != null) {
+               ActiveMQJournalLogger.LOGGER.error(fault.getMessage(), fault);
+            }
+            if (JournalImpl.TRACE_RECORDS) {
+               JournalImpl.traceRecord("appendDeleteRecordTransactional::txID=" + txID +
+                       ", id=" +
+                       id +
+                       ", usedFile = " +
+                       usedFile);
             }
          }
       });
@@ -1014,28 +1038,32 @@ public class JournalImpl extends JournalBase implements TestableJournal, Journal
       lineUpContext(callback);
 
       final JournalTransaction tx = getTransactionInfo(txID);
+      final JournalInternalRecord prepareRecord = new JournalCompleteRecordTX(TX_RECORD_TYPE.PREPARE, txID, transactionData);
       tx.checkErrorCondition();
 
       Future<?> result = appendExecutor.submit(new Runnable() {
          @Override
          public void run() {
+            JournalFile usedFile = null;
+            Exception fault = null;
             journalLock.readLock().lock();
             try {
-               JournalInternalRecord prepareRecord = new JournalCompleteRecordTX(TX_RECORD_TYPE.PREPARE, txID, transactionData);
-               JournalFile usedFile = appendRecord(prepareRecord, true, sync, tx, callback);
-
-               if (JournalImpl.TRACE_RECORDS) {
-                  JournalImpl.traceRecord("appendPrepareRecord::txID=" + txID + ", usedFile = " + usedFile);
-               }
+               usedFile = appendRecord(prepareRecord, true, sync, tx, callback);
 
                tx.prepare(usedFile);
             }
             catch (Exception e) {
-               ActiveMQJournalLogger.LOGGER.error(e.getMessage(), e);
+               fault = e;
                setErrorCondition(tx, e);
             }
             finally {
                journalLock.readLock().unlock();
+            }
+            if (fault != null) {
+               ActiveMQJournalLogger.LOGGER.error(fault.getMessage(), fault);
+            }
+            if (JournalImpl.TRACE_RECORDS) {
+               JournalImpl.traceRecord("appendPrepareRecord::txID=" + txID + ", usedFile = " + usedFile);
             }
          }
       });
@@ -1077,6 +1105,7 @@ public class JournalImpl extends JournalBase implements TestableJournal, Journal
       }
 
       final JournalTransaction tx = transactions.remove(txID);
+      final JournalInternalRecord commitRecord = new JournalCompleteRecordTX(TX_RECORD_TYPE.COMMIT, txID, null);
 
       if (tx == null) {
          throw new IllegalStateException("Cannot find tx with id " + txID);
@@ -1087,23 +1116,26 @@ public class JournalImpl extends JournalBase implements TestableJournal, Journal
       Future<?> result = appendExecutor.submit(new Runnable() {
          @Override
          public void run() {
+            JournalFile usedFile = null;
+            Exception fault = null;
             journalLock.readLock().lock();
             try {
-               JournalInternalRecord commitRecord = new JournalCompleteRecordTX(TX_RECORD_TYPE.COMMIT, txID, null);
-               JournalFile usedFile = appendRecord(commitRecord, true, sync, tx, callback);
-
-               if (JournalImpl.TRACE_RECORDS) {
-                  JournalImpl.traceRecord("appendCommitRecord::txID=" + txID + ", usedFile = " + usedFile);
-               }
+               usedFile = appendRecord(commitRecord, true, sync, tx, callback);
 
                tx.commit(usedFile);
             }
             catch (Exception e) {
-               ActiveMQJournalLogger.LOGGER.error(e.getMessage(), e);
+               fault = e;
                setErrorCondition(tx, e);
             }
             finally {
                journalLock.readLock().unlock();
+            }
+            if (fault != null) {
+               ActiveMQJournalLogger.LOGGER.error(fault.getMessage(), fault);
+            }
+            if (JournalImpl.TRACE_RECORDS) {
+               JournalImpl.traceRecord("appendCommitRecord::txID=" + txID + ", usedFile = " + usedFile);
             }
          }
       });
@@ -1120,6 +1152,7 @@ public class JournalImpl extends JournalBase implements TestableJournal, Journal
       lineUpContext(callback);
 
       final JournalTransaction tx = transactions.remove(txID);
+      final JournalInternalRecord rollbackRecord = new JournalRollbackRecordTX(txID);
 
       if (tx == null) {
          throw new IllegalStateException("Cannot find tx with id " + txID);
@@ -1130,19 +1163,23 @@ public class JournalImpl extends JournalBase implements TestableJournal, Journal
       Future<?> result = appendExecutor.submit(new Runnable() {
          @Override
          public void run() {
+            JournalFile usedFile = null;
+            Exception fault = null;
             journalLock.readLock().lock();
             try {
-               JournalInternalRecord rollbackRecord = new JournalRollbackRecordTX(txID);
-               JournalFile usedFile = appendRecord(rollbackRecord, false, sync, tx, callback);
+               usedFile = appendRecord(rollbackRecord, false, sync, tx, callback);
 
                tx.rollback(usedFile);
             }
             catch (Exception e) {
-               ActiveMQJournalLogger.LOGGER.error(e.getMessage(), e);
+               fault = e;
                setErrorCondition(tx, e);
             }
             finally {
                journalLock.readLock().unlock();
+            }
+            if (fault != null) {
+               ActiveMQJournalLogger.LOGGER.error(fault.getMessage(), fault);
             }
          }
       });
