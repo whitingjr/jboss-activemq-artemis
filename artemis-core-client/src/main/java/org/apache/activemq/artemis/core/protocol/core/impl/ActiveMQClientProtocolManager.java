@@ -509,6 +509,10 @@ public class ActiveMQClientProtocolManager implements ClientProtocolManager {
 
             if (topologyResponseHandler != null) {
                topologyResponseHandler.notifyNodeUp(eventUID, topMessage.getNodeID(), backupGroupName, scaleDownGroupName, transportConfig, topMessage.isLast());
+            }else {
+               if (ActiveMQClientLogger.LOGGER.isDebugEnabled()) {
+                  ActiveMQClientLogger.LOGGER.debug("Missing topology response handler for node [" + topMessage.getNodeID() + "] ");
+               }
             }
          }
       }

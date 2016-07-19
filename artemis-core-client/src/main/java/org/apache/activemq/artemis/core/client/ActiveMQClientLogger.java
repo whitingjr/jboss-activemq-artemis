@@ -436,4 +436,10 @@ public interface ActiveMQClientLogger extends BasicLogger {
       format = Message.Format.MESSAGE_FORMAT)
    void reconnectCreatingNewSession(long id);
 
+   @LogMessage(level = Logger.Level.DEBUG)
+   @Message(id = 214029,
+      value = "About to count down the latch!!!!!",
+      format = Message.Format.MESSAGE_FORMAT)
+   void countingDown();
+
 }
