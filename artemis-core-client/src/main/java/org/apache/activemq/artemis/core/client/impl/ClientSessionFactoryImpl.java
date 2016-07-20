@@ -1311,7 +1311,7 @@ public class ClientSessionFactoryImpl implements ClientSessionFactoryInternal, C
          finally {
             if (isLast) {
                if (ClientSessionFactoryImpl.isDebug) {
-                  ActiveMQClientLogger.LOGGER.countingDown();
+                  ActiveMQClientLogger.LOGGER.countingDown(nodeID);
                }
                latchFinalTopology.countDown();
             }

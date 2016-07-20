@@ -21,6 +21,7 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executor;
 import java.util.concurrent.RejectedExecutionException;
+import org.jboss.logging.Logger;
 
 import io.netty.channel.ChannelPipeline;
 import org.apache.activemq.artemis.api.core.ActiveMQBuffer;
@@ -62,6 +63,8 @@ import org.apache.activemq.artemis.spi.core.remoting.Connection;
 public class CoreProtocolManager implements ProtocolManager<Interceptor> {
 
    private static final boolean isTrace = ActiveMQServerLogger.LOGGER.isTraceEnabled();
+   
+   private static final boolean isDebug = ActiveMQServerLogger.LOGGER.isDebugEnabled();
 
    private final ActiveMQServer server;
 
@@ -309,6 +312,9 @@ public class CoreProtocolManager implements ProtocolManager<Interceptor> {
                      String nodeId = server.getNodeID().toString();
                      Pair<TransportConfiguration, TransportConfiguration> emptyConfig = new Pair<TransportConfiguration, TransportConfiguration>(null, null);
                      if (channel0.supports(PacketImpl.CLUSTER_TOPOLOGY_V2)) {
+                        if (isDebug) {
+                           ActiveMQServerLogger.LOGGER.nodeUpMessage(Long.toString(channel0.getID()), nodeId);
+                        }
                         channel0.send(new ClusterTopologyChangeMessage_V2(System.currentTimeMillis(), nodeId, null, emptyConfig, true));
                      }
                      else {
