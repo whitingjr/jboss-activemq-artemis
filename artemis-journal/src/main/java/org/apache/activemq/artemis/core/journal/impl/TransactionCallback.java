@@ -42,7 +42,8 @@ public class TransactionCallback implements IOCallback {
 
    public void done() {
       countLatch.countDown();
-      if (++done == up.get() && delegateCompletion != null) {
+      if (++done == up.get() ) {
+    	 assert delegateCompletion != null;
          final IOCallback delegateToCall = delegateCompletion;
          // We need to set the delegateCompletion to null first or blocking commits could miss a callback
          // What would affect mainly tests
