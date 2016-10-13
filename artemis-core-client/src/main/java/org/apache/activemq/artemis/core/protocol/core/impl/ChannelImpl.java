@@ -31,6 +31,7 @@ import org.apache.activemq.artemis.api.core.ActiveMQInterruptedException;
 import org.apache.activemq.artemis.api.core.Interceptor;
 import org.apache.activemq.artemis.core.client.ActiveMQClientLogger;
 import org.apache.activemq.artemis.core.client.ActiveMQClientMessageBundle;
+import org.apache.activemq.artemis.core.client.impl.ClientSessionFactoryImpl;
 import org.apache.activemq.artemis.core.protocol.core.Channel;
 import org.apache.activemq.artemis.core.protocol.core.ChannelHandler;
 import org.apache.activemq.artemis.core.protocol.core.CommandConfirmationHandler;
@@ -121,6 +122,8 @@ public final class ChannelImpl implements Channel {
    private volatile boolean transferring;
 
    private final List<Interceptor> interceptors;
+
+   private static final boolean isDebug = ActiveMQClientLogger.LOGGER.isDebugEnabled();
 
    public ChannelImpl(final CoreRemotingConnection connection,
                       final long id,
@@ -623,6 +626,9 @@ public final class ChannelImpl implements Channel {
             }
          }
          else if (handler != null) {
+            if (isDebug) {
+               ActiveMQClientLogger.LOGGER.handlePacket();
+            }
             handler.handlePacket(packet);
          }
       }

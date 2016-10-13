@@ -438,8 +438,14 @@ public interface ActiveMQClientLogger extends BasicLogger {
 
    @LogMessage(level = Logger.Level.DEBUG)
    @Message(id = 214029,
-      value = "About to count down the latch for nodeId[{0}]!!!!!",
+      value = "About to count down the latch for nodeId[{0}] and thread [{1}]!",
       format = Message.Format.MESSAGE_FORMAT)
-   void countingDown(String id);
+   void countingDown(String id, String thread);
+
+   @LogMessage(level = Logger.Level.DEBUG)
+   @Message(id = 214030,
+      value = "About to handle a packet.",
+      format = Message.Format.MESSAGE_FORMAT)
+   void handlePacket();
 
 }

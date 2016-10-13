@@ -1454,6 +1454,6 @@ public interface ActiveMQServerLogger extends BasicLogger {
    void interruptWhilstStoppingComponent(String componentClassName);
 
    @LogMessage(level = Logger.Level.DEBUG)
-   @Message(id = 224072, value = "About to dispatch cluster topology message for the channel id [{0}] and node[{0}].", format = Message.Format.MESSAGE_FORMAT)
+   @Message(id = 224072, value = "About to dispatch cluster topology message for the channel id [{0}] and node[{1}].", format = Message.Format.MESSAGE_FORMAT)
    void nodeUpMessage(String id, String node);
 }
