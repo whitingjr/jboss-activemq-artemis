@@ -40,8 +40,7 @@ public class TransactionCallback implements IOCallback {
       countLatch.countUp();
    }
 
-   public void done() {
-      countLatch.countDown();
+   public synchronized void done() {
       if (++done == up.get() && delegateCompletion != null) {
          final IOCallback delegateToCall = delegateCompletion;
          // We need to set the delegateCompletion to null first or blocking commits could miss a callback
@@ -49,6 +48,7 @@ public class TransactionCallback implements IOCallback {
          delegateCompletion = null;
          delegateToCall.done();
       }
+      countLatch.countDown();
    }
 
    public void waitCompletion() throws InterruptedException {
