@@ -1305,14 +1305,14 @@ public class ClientSessionFactoryImpl implements ClientSessionFactoryInternal, C
             if (connectorPair.getA() != null && TransportConfigurationUtil.isSameHost(connectorPair.getA(), connectorConfig)) {
                liveNodeID = nodeID;
             }
-
+            if (ClientSessionFactoryImpl.isDebug) {
+                ActiveMQClientLogger.LOGGER.countingDown(nodeID, Thread.currentThread().getName());
+             }
             serverLocator.notifyNodeUp(uniqueEventID, nodeID, backupGroupName, scaleDownGroupName, connectorPair, isLast);
          }
          finally {
             if (isLast) {
-               if (ClientSessionFactoryImpl.isDebug) {
-                  ActiveMQClientLogger.LOGGER.countingDown(nodeID, Thread.currentThread().getName());
-               }
+               
                latchFinalTopology.countDown();
             }
          }

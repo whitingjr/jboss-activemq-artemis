@@ -438,7 +438,7 @@ public interface ActiveMQClientLogger extends BasicLogger {
 
    @LogMessage(level = Logger.Level.DEBUG)
    @Message(id = 214029,
-      value = "About to count down the latch for nodeId[{0}] and thread [{1}]!",
+      value = "Node received a call to say it is up nodeId[{0}]. Last in group [{1}].",
       format = Message.Format.MESSAGE_FORMAT)
    void countingDown(String id, String thread);
 

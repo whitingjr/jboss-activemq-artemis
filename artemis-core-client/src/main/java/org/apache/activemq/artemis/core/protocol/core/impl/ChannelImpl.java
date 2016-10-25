@@ -372,6 +372,7 @@ public final class ChannelImpl implements Channel {
 
             while (!closed && (response == null || (response.getType() != PacketImpl.EXCEPTION && response.getType() != expectedPacket)) && toWait > 0) {
                try {
+            	  System.out.println( "About to await with timeout ["+ toWait+ "] millis");
                   sendCondition.await(toWait, TimeUnit.MILLISECONDS);
                }
                catch (InterruptedException e) {
