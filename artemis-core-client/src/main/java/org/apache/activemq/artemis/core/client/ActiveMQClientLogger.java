@@ -438,14 +438,26 @@ public interface ActiveMQClientLogger extends BasicLogger {
 
    @LogMessage(level = Logger.Level.DEBUG)
    @Message(id = 214029,
-      value = "Node received a call to say it is up nodeId[{0}]. Last in group [{1}].",
+      value = "Node received a call to say it is up nodeId[{0}]. Last in group [{2}]. Thread [{1}].",
       format = Message.Format.MESSAGE_FORMAT)
-   void countingDown(String id, String thread);
+   void countingDown(String id, String thread, boolean isLast);
 
    @LogMessage(level = Logger.Level.DEBUG)
    @Message(id = 214030,
       value = "About to handle a packet.",
       format = Message.Format.MESSAGE_FORMAT)
    void handlePacket();
+
+   @LogMessage(level = Logger.Level.INFO)
+   @Message(id = 21403,
+      value = "Awaiting [{0}] millis for sendBlocking.",
+      format = Message.Format.MESSAGE_FORMAT)
+   void sendBlockingAwait(long millis);
+
+   @LogMessage(level = Logger.Level.INFO)
+   @Message(id = 21404,
+      value = "Awaiting compete. [{0}] millis elapsed.",
+      format = Message.Format.MESSAGE_FORMAT)
+   void sendBlockingAwaitFinished(long millis);
 
 }

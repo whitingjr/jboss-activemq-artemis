@@ -1306,17 +1306,15 @@ public class ClientSessionFactoryImpl implements ClientSessionFactoryInternal, C
                liveNodeID = nodeID;
             }
             if (ClientSessionFactoryImpl.isDebug) {
-                ActiveMQClientLogger.LOGGER.countingDown(nodeID, Thread.currentThread().getName());
-             }
+                ActiveMQClientLogger.LOGGER.countingDown(nodeID, Thread.currentThread().getName(), isLast);
+            }
             serverLocator.notifyNodeUp(uniqueEventID, nodeID, backupGroupName, scaleDownGroupName, connectorPair, isLast);
          }
          finally {
             if (isLast) {
-               
                latchFinalTopology.countDown();
             }
          }
-
       }
 
       @Override
